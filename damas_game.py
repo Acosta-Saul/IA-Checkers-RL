@@ -38,12 +38,19 @@ class Player(pygame.sprite.Sprite):
         self.rect.y = fila * TCELDA + (TCELDA - 50) // 2
         self.columna = columna
         self.fila = fila
+        self.es_dama = False  # Indica si la ficha es una dama
 
     def mover(self, nueva_columna, nueva_fila):
         self.columna = nueva_columna
         self.fila = nueva_fila
         self.rect.x = nueva_columna * TCELDA + (TCELDA - 50) // 2
         self.rect.y = nueva_fila * TCELDA + (TCELDA - 50) // 2
+
+        # Promover a dama si llega al extremo opuesto
+        if not self.es_dama:
+            if (self.color == negro and nueva_fila == 3) or (self.color == blanco and nueva_fila == 0):
+                self.es_dama = True
+                pygame.draw.circle(self.image, (255, 215, 0), (25, 25), 5)  # Marcar como dama
 
 
 class Tablero:
@@ -100,8 +107,6 @@ def reiniciar_juego():
     
     turno = 'negro'  
     numero_turno = 1  
-    
-  
 
 
 # Colocar fichas iniciales
@@ -114,56 +119,6 @@ ganador = None
 
 # Bandera para evitar incremento repetido de victorias
 victoria_detectada = False
-
-# Función para calcular todas las jugadas posibles
-def jugadas_posibles(ficha):
-    jugadas = []
-    for dx, dy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
-        nueva_columna = ficha.columna + dx
-        nueva_fila = ficha.fila + dy
-        if 0 <= nueva_columna < 4 and 0 <= nueva_fila < 4 and not casilla_ocupada(nueva_columna, nueva_fila):
-            jugadas.append((nueva_columna, nueva_fila))
-    return jugadas
-
-
-# Función de Minimax
-def minimax():
-    mejores_jugadas = []
-    mejor_puntaje = -float('inf')  # Comenzar con el peor puntaje posible
-
-    # Evaluar todas las fichas de la IA 
-    for ficha in all_sprite_list:
-        if ficha.color == negro:  
-            # Primero, verificamos si hay alguna jugada de captura
-            for dx, dy in [(-2, -2), (2, -2), (-2, 2), (2, 2)]:
-                nueva_columna = ficha.columna + dx
-                nueva_fila = ficha.fila + dy
-                medio_columna = (ficha.columna + nueva_columna) // 2
-                medio_fila = (ficha.fila + nueva_fila) // 2
-                if 0 <= nueva_columna < 4 and 0 <= nueva_fila < 4 and not casilla_ocupada(nueva_columna, nueva_fila):
-                    for ficha_comida in all_sprite_list:
-                        if ficha_comida.columna == medio_columna and ficha_comida.fila == medio_fila and ficha_comida.color != ficha.color:
-                            # Captura realizada
-                            all_sprite_list.remove(ficha_comida)
-                            puntaje = 10  # Recompensar la captura
-                            mejores_jugadas.append((ficha, nueva_columna, nueva_fila, puntaje))
-                            if puntaje > mejor_puntaje:
-                                mejor_puntaje = puntaje
-                            break
-
-            # Si no se encontró ninguna captura, evaluar jugadas simples
-            if not mejores_jugadas:
-                for jugada in jugadas_posibles(ficha):
-                    # Simple movimiento sin captura
-                    mejores_jugadas.append((ficha, jugada[0], jugada[1], 0))  # Movimiento simple
-
-    # Si hay jugadas, elegir la mejor
-    if mejores_jugadas:
-        # Seleccionar la jugada con el mejor puntaje
-        mejor_jugada = max(mejores_jugadas, key=lambda x: x[3])  # Escoge la jugada con el puntaje más alto
-        return mejor_jugada[1], mejor_jugada[2]  # Devuelve coordenada del tablero
-
-    return None
 
 sound = pygame.mixer.Sound("movimiento.mp3")
 pygame.mixer.music.load("ost.mp3")
@@ -201,14 +156,27 @@ while start:
                 dy = fila - ficha_seleccionada.fila
 
                 if not casilla_ocupada(columna, fila):
-                    if abs(dx) == 1 and abs(dy) == 1:  # Movimiento simple
-                        ficha_seleccionada.mover(columna, fila)
-                        turno = 'blanco' if turno == 'negro' else 'negro'
-                        numero_turno += 1  # Incrementar el número de turno
-                        ficha_seleccionada = None
-                        sound.play()
+                    # Movimiento válido para fichas normales (solo hacia adelante)
+                    if not ficha_seleccionada.es_dama:
+                        if (ficha_seleccionada.color == negro and dy == 1) or (ficha_seleccionada.color == blanco and dy == -1):
+                            if abs(dx) == 1 and abs(dy) == 1:  # Movimiento simple
+                                ficha_seleccionada.mover(columna, fila)
+                                turno = 'blanco' if turno == 'negro' else 'negro'
+                                numero_turno += 1
+                                ficha_seleccionada = None
+                                sound.play()
 
-                    elif abs(dx) == 2 and abs(dy) == 2:  # Captura
+                    # Movimiento válido para damas (adelante y atrás)
+                    else:
+                        if abs(dx) == 1 and abs(dy) == 1:  # Movimiento simple
+                            ficha_seleccionada.mover(columna, fila)
+                            turno = 'blanco' if turno == 'negro' else 'negro'
+                            numero_turno += 1
+                            ficha_seleccionada = None
+                            sound.play()
+
+                    # Captura (para fichas normales y damas)
+                    if abs(dx) == 2 and abs(dy) == 2:
                         medio_columna = (ficha_seleccionada.columna + columna) // 2
                         medio_fila = (ficha_seleccionada.fila + fila) // 2
                         ficha_comida = None
@@ -221,15 +189,15 @@ while start:
                             ficha_seleccionada.mover(columna, fila)
                             all_sprite_list.remove(ficha_comida)
                             turno = 'blanco' if turno == 'negro' else 'negro'
-                            numero_turno += 1  # Incrementar el número de turno
+                            numero_turno += 1
                         ficha_seleccionada = None
 
         if event.type == pygame.KEYDOWN:
             # Si se presiona la barra espaciadora, reiniciar el juego
             if event.key == pygame.K_SPACE:
                 reiniciar_juego()
-                ganador = None  # Reiniciar el ganador para el siguiente juego
-                victoria_detectada = False  # Resetear la bandera para permitir que se detecte la victoria nuevamente
+                ganador = None
+                victoria_detectada = False
 
     # Verificar ganador solo si no se ha detectado victoria previamente
     if not victoria_detectada:
@@ -242,23 +210,13 @@ while start:
             elif quien_gana == 'humano':
                 victorias_humano += 1
 
-            victoria_detectada = True  # Marcar que ya se detectó un ganador
+            victoria_detectada = True
 
     # Verificar si es empate después de 64 turnos
     if numero_turno > 64 and not ganador:
         empates += 1
         ganador = "¡Empate!"
         victoria_detectada = True
-
-    # Movimiento de la IA 
-    if turno == 'negro' and not victoria_detectada:
-        jugada = minimax()
-        if jugada:
-            ficha = next(ficha for ficha in all_sprite_list if ficha.color == negro)
-            ficha.mover(jugada[0], jugada[1])
-            turno = 'blanco'
-            numero_turno += 1
-            sound.play()
 
     # Dibujar tablero y fichas
     screen.fill((255, 255, 255))
