@@ -13,6 +13,8 @@ marron_c = (102, 51, 0)
 marron_o = (153, 76, 0)
 negro = (0, 0, 0)
 blanco = (255, 255, 255)
+resaltado = (0, 255, 0)  # Color para resaltar la ficha seleccionada
+movimiento_posible = (0, 0, 255)  # Color para mostrar movimientos posibles
 
 # Colecciona todos los sprites
 all_sprite_list = pygame.sprite.Group()
@@ -50,7 +52,7 @@ class Player(pygame.sprite.Sprite):
         if not self.es_dama:
             if (self.color == negro and nueva_fila == 3) or (self.color == blanco and nueva_fila == 0):
                 self.es_dama = True
-                pygame.draw.circle(self.image, (255, 215, 0), (25, 25), 5)  # Marcar como dama
+                pygame.draw.circle(self.image, (255, 215, 0), (25, 25), 8)  # Marcar como dama
 
 
 class Tablero:
@@ -75,6 +77,14 @@ def casilla_ocupada(columna, fila):
         if ficha.columna == columna and ficha.fila == fila:
             return True
     return False
+
+
+# Función para obtener la ficha en una casilla
+def obtener_ficha(columna, fila):
+    for ficha in all_sprite_list:
+        if ficha.columna == columna and ficha.fila == fila:
+            return ficha
+    return None
 
 
 # Función para verificar ganador o empate
@@ -109,6 +119,42 @@ def reiniciar_juego():
     numero_turno = 1  
 
 
+# Función para obtener movimientos posibles
+def obtener_movimientos_posibles(ficha):
+    movimientos = []
+    direcciones = []
+
+    # Direcciones para fichas normales
+    if not ficha.es_dama:
+        if ficha.color == negro:
+            direcciones = [(1, 1), (-1, 1)]  # Diagonal hacia adelante para negras
+        else:
+            direcciones = [(1, -1), (-1, -1)]  # Diagonal hacia adelante para blancas
+    else:
+        # Direcciones para damas (adelante y atrás)
+        direcciones = [(1, 1), (-1, 1), (1, -1), (-1, -1)]
+
+    for dx, dy in direcciones:
+        nueva_columna = ficha.columna + dx
+        nueva_fila = ficha.fila + dy
+
+        # Verificar si la casilla está dentro del tablero
+        if 0 <= nueva_columna < 4 and 0 <= nueva_fila < 4:
+            if not casilla_ocupada(nueva_columna, nueva_fila):
+                movimientos.append((nueva_columna, nueva_fila))
+            else:
+                # Verificar si se puede capturar una ficha
+                ficha_comida = obtener_ficha(nueva_columna, nueva_fila)
+                if ficha_comida and ficha_comida.color != ficha.color:
+                    nueva_columna_captura = nueva_columna + dx
+                    nueva_fila_captura = nueva_fila + dy
+                    if 0 <= nueva_columna_captura < 4 and 0 <= nueva_fila_captura < 4:
+                        if not casilla_ocupada(nueva_columna_captura, nueva_fila_captura):
+                            movimientos.append((nueva_columna_captura, nueva_fila_captura))
+
+    return movimientos
+
+
 # Colocar fichas iniciales
 tablero = Tablero()
 colocar_fichas(negro, 0)
@@ -116,6 +162,7 @@ colocar_fichas(blanco, 3)
 
 ficha_seleccionada = None
 ganador = None
+movimientos_posibles = []
 
 # Bandera para evitar incremento repetido de victorias
 victoria_detectada = False
@@ -150,47 +197,41 @@ while start:
                 for ficha in all_sprite_list:
                     if ficha.rect.collidepoint(pos) and ficha.color == (negro if turno == 'negro' else blanco):
                         ficha_seleccionada = ficha
+                        movimientos_posibles = obtener_movimientos_posibles(ficha)
                         break
             else:
-                dx = columna - ficha_seleccionada.columna
-                dy = fila - ficha_seleccionada.fila
+                # Mover ficha si la casilla está en los movimientos posibles
+                if (columna, fila) in movimientos_posibles:
+                    dx = columna - ficha_seleccionada.columna
+                    dy = fila - ficha_seleccionada.fila
 
-                if not casilla_ocupada(columna, fila):
-                    # Movimiento válido para fichas normales (solo hacia adelante)
-                    if not ficha_seleccionada.es_dama:
-                        if (ficha_seleccionada.color == negro and dy == 1) or (ficha_seleccionada.color == blanco and dy == -1):
-                            if abs(dx) == 1 and abs(dy) == 1:  # Movimiento simple
-                                ficha_seleccionada.mover(columna, fila)
-                                turno = 'blanco' if turno == 'negro' else 'negro'
-                                numero_turno += 1
-                                ficha_seleccionada = None
-                                sound.play()
+                    # Movimiento simple
+                    if abs(dx) == 1 and abs(dy) == 1:
+                        ficha_seleccionada.mover(columna, fila)
+                        turno = 'blanco' if turno == 'negro' else 'negro'
+                        numero_turno += 1
+                        ficha_seleccionada = None
+                        movimientos_posibles = []
+                        sound.play()
 
-                    # Movimiento válido para damas (adelante y atrás)
-                    else:
-                        if abs(dx) == 1 and abs(dy) == 1:  # Movimiento simple
-                            ficha_seleccionada.mover(columna, fila)
-                            turno = 'blanco' if turno == 'negro' else 'negro'
-                            numero_turno += 1
-                            ficha_seleccionada = None
-                            sound.play()
-
-                    # Captura (para fichas normales y damas)
-                    if abs(dx) == 2 and abs(dy) == 2:
+                    # Captura
+                    elif abs(dx) == 2 and abs(dy) == 2:
                         medio_columna = (ficha_seleccionada.columna + columna) // 2
                         medio_fila = (ficha_seleccionada.fila + fila) // 2
-                        ficha_comida = None
-                        for ficha in all_sprite_list:
-                            if ficha.columna == medio_columna and ficha.fila == medio_fila and ficha.color != ficha_seleccionada.color:
-                                ficha_comida = ficha
-                                sound.play()
-                                break
+                        ficha_comida = obtener_ficha(medio_columna, medio_fila)
                         if ficha_comida:
                             ficha_seleccionada.mover(columna, fila)
                             all_sprite_list.remove(ficha_comida)
                             turno = 'blanco' if turno == 'negro' else 'negro'
                             numero_turno += 1
+                            sound.play()
                         ficha_seleccionada = None
+                        movimientos_posibles = []
+
+                else:
+                    # Deseleccionar la ficha si se hace clic en otra casilla
+                    ficha_seleccionada = None
+                    movimientos_posibles = []
 
         if event.type == pygame.KEYDOWN:
             # Si se presiona la barra espaciadora, reiniciar el juego
@@ -222,6 +263,15 @@ while start:
     screen.fill((255, 255, 255))
     tablero.dibujar_grid(screen)
     all_sprite_list.draw(screen)
+
+    # Resaltar la ficha seleccionada
+    if ficha_seleccionada:
+        pygame.draw.rect(screen, resaltado, (ficha_seleccionada.rect.x - 5, ficha_seleccionada.rect.y - 5, 60, 60), 3)
+
+    # Mostrar movimientos posibles
+    for movimiento in movimientos_posibles:
+        columna, fila = movimiento
+        pygame.draw.circle(screen, movimiento_posible, (columna * TCELDA + TCELDA // 2, fila * TCELDA + TCELDA // 2), 10)
 
     # Mostrar ganador o empate
     if ganador:
