@@ -147,19 +147,18 @@ def obtener_movimientos_posibles(ficha):
         else:
             direcciones = [(1, -1), (-1, -1)]  # Diagonal hacia adelante para blancas
     else:
-        # Direcciones para damas (adelante y atrás)
         direcciones = [(1, 1), (-1, 1), (1, -1), (-1, -1)]
 
     for dx, dy in direcciones:
         nueva_columna = ficha.columna + dx
         nueva_fila = ficha.fila + dy
 
-        # Verificar si la casilla está dentro del tablero
+        # Verifica si la casilla está dentro del tablero
         if 0 <= nueva_columna < 4 and 0 <= nueva_fila < 4:
             if not casilla_ocupada(nueva_columna, nueva_fila):
                 movimientos.append((nueva_columna, nueva_fila))
             else:
-                # Verificar si se puede capturar una ficha
+                # Verifica si se puede capturar una ficha
                 ficha_comida = obtener_ficha(nueva_columna, nueva_fila)
                 if ficha_comida and ficha_comida.color != ficha.color:
                     nueva_columna_captura = nueva_columna + dx
@@ -171,7 +170,7 @@ def obtener_movimientos_posibles(ficha):
     return movimientos
 
 # ----------------- Funciones para Q-Learning -----------------
-
+# Descripciones para recordar lo que hace cada función:
 def get_state():
     """
     Representa el estado actual del tablero como un string.
@@ -179,7 +178,7 @@ def get_state():
     """
     state = []
     for ficha in all_sprite_list:
-        # Representar la ficha como: (Color, columna, fila, es_dama)
+        # Representa la ficha como: (Color, columna, fila, es_dama)
         color_str = "N" if ficha.color == negro else "B"
         state.append((color_str, ficha.columna, ficha.fila, ficha.es_dama))
     state.sort()
