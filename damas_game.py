@@ -171,7 +171,7 @@ def obtener_movimientos_posibles(ficha):
 
 # ----------------- Funciones para Q-Learning -----------------
 # Descripciones para recordar lo que hace cada función:
-def get_state():
+def obtener_estado():
     """
     Representa el estado actual del tablero como un string.
     Se recorre la lista de fichas y se crea una lista con la información de cada una.
@@ -184,7 +184,7 @@ def get_state():
     state.sort()
     return str(state)
 
-def get_ai_moves():
+def obtener_movimiento_ia():
     """
     Obtiene una lista de movimientos posibles para las fichas de la IA (color negro).
     Cada movimiento es una tupla (ficha, (columna_destino, fila_destino))
@@ -197,7 +197,7 @@ def get_ai_moves():
                 moves.append((ficha, m))
     return moves
 
-def choose_ai_move(state, moves):
+def elegir_movimiento_ia(state, moves):
     """
     Selecciona un movimiento utilizando una estrategia ε-greedy.
     La acción se representa como una tupla: (col_inicial, fila_inicial, col_destino, fila_destino)
@@ -221,7 +221,7 @@ def choose_ai_move(state, moves):
             best_move = random.choice(moves)
     return best_move
 
-def ai_move():
+def movimiento_ia():
     """
     Realiza el movimiento de la IA:
       - Obtiene el estado actual.
@@ -231,11 +231,11 @@ def ai_move():
       - Registra la transición (estado, acción, nuevo estado).
     """
     global turno, numero_turno, ai_history
-    current_state = get_state()
-    moves = get_ai_moves()
+    current_state = obtener_estado()
+    moves = obtener_movimiento_ia()
     if not moves:
         return  # No hay movimientos disponibles, la IA pierde
-    ficha, move = choose_ai_move(current_state, moves)
+    ficha, move = elegir_movimiento_ia(current_state, moves)
     target_col, target_row = move
     dx = target_col - ficha.columna
     dy = target_row - ficha.fila
@@ -255,12 +255,12 @@ def ai_move():
     turno = 'blanco'
     numero_turno += 1
     sound.play()
-    new_state = get_state()
+    new_state = obtener_estado()
     # Se registra la acción: (col_inicial, fila_inicial, col_destino, fila_destino)
     action = (pos_inicial[0], pos_inicial[1], target_col, target_row)
     ai_history.append((current_state, str(action), new_state))
 
-def update_q_values(reward):
+def actualizar_q_valores(reward):
     """
     Actualiza la Q-table utilizando la ecuación de Q-Learning para cada transición registrada
     durante la partida. El parámetro 'reward' es la recompensa obtenida al finalizar la partida.
@@ -369,7 +369,7 @@ while start:
 
     # Si es el turno de la IA (negro) y no hay ganador, la IA toma su movimiento
     if turno == 'negro' and not ganador:
-        ai_move()
+        movimiento_ia()
 
     # Verificar ganador solo si no se ha detectado victoria previamente
     if not q_updated:
@@ -379,12 +379,12 @@ while start:
         if ganador:
             if quien_gana == 'ia':
                 victorias_ia += 1
-                update_q_values(1)
+                actualizar_q_valores(1)
             elif quien_gana == 'humano':
                 victorias_humano += 1
-                update_q_values(-1)
+                actualizar_q_valores(-1)
             else:
-                update_q_values(0)
+                actualizar_q_valores(0)
             q_updated = True
 
     # Verificar si es empate después de 64 turnos
@@ -392,7 +392,7 @@ while start:
         empates += 1
         ganador = "¡Empate!"
         if not q_updated:
-            update_q_values(0)
+            actualizar_q_valores(0)
             q_updated = True
 
     # Dibujar tablero y fichas
